@@ -1,0 +1,156 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile data",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "company": { "type": "string" },
+        "taxId": { "type": "string" },
+        "taxIdType": { "type": "string", "enum": ["cnpj", "vat", "tax_id", "other"] },
+        "country": { "type": "string" },
+        "phone": { "type": "string" },
+        "role": { "type": "string", "enum": ["client", "admin"] },
+        "preferredLanguage": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "company", "country", "role", "preferredLanguage", "createdAt", "updatedAt"]
+    },
+    "DiagnosticLead": {
+      "title": "DiagnosticLead",
+      "description": "Lead generated from the AI diagnostic chat",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "company": { "type": "string" },
+        "taxId": { "type": "string" },
+        "taxIdType": { "type": "string" },
+        "country": { "type": "string" },
+        "phone": { "type": "string" },
+        "riskLevel": { "type": "string", "enum": ["low", "moderate", "high"] },
+        "conversationHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string" },
+              "content": { "type": "string" }
+            }
+          }
+        },
+        "language": { "type": "string" },
+        "siteLanguage": { "type": "string" },
+        "eventSource": { "type": "string" },
+        "utmSource": { "type": "string" },
+        "utmMedium": { "type": "string" },
+        "utmCampaign": { "type": "string" },
+        "crmSyncStatus": { "type": "string", "enum": ["pending", "sent", "failed"] },
+        "contactRequested": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["new", "contacted", "converted", "archived"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "company", "country", "riskLevel", "conversationHistory", "language", "siteLanguage", "crmSyncStatus", "contactRequested", "status", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Digital product or course",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "object",
+          "properties": {
+            "pt": { "type": "string" },
+            "en": { "type": "string" },
+            "fr": { "type": "string" },
+            "es": { "type": "string" },
+            "de": { "type": "string" }
+          }
+        },
+        "description": {
+          "type": "object",
+          "properties": {
+            "pt": { "type": "string" },
+            "en": { "type": "string" },
+            "fr": { "type": "string" },
+            "es": { "type": "string" },
+            "de": { "type": "string" }
+          }
+        },
+        "category": { "type": "string", "enum": ["course", "video", "toolkit", "ebook"] },
+        "price": { "type": "number" },
+        "currency": { "type": "string", "enum": ["BRL", "USD", "EUR"] },
+        "mediaUrl": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "syllabus": {
+          "type": "object",
+          "properties": {
+            "pt": { "type": "string" },
+            "en": { "type": "string" },
+            "fr": { "type": "string" },
+            "es": { "type": "string" },
+            "de": { "type": "string" }
+          }
+        },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "category", "price", "currency", "isActive", "createdAt"]
+    },
+    "Purchase": {
+      "title": "Purchase",
+      "description": "Record of a product purchase",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "productId": { "type": "string" },
+        "stripeSessionId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed", "refunded"] },
+        "accessGrantedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "productId", "amount", "currency", "status", "createdAt"]
+    },
+    "SiteConfig": {
+      "title": "SiteConfig",
+      "description": "Configuration for the site",
+      "type": "object",
+      "properties": {
+        "heroTitle": { "type": "object" },
+        "heroSubtitle": { "type": "object" },
+        "faq": { "type": "array" },
+        "contactEmail": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "socialLinks": { "type": "object" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles"
+    },
+    "/diagnostic_leads/{leadId}": {
+      "schema": { "$ref": "#/entities/DiagnosticLead" },
+      "description": "Leads from AI diagnostic"
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Products available for purchase"
+    },
+    "/purchases/{purchaseId}": {
+      "schema": { "$ref": "#/entities/Purchase" },
+      "description": "Purchase records"
+    },
+    "/site_config/{configId}": {
+      "schema": { "$ref": "#/entities/SiteConfig" },
+      "description": "Site configuration documents"
+    }
+  }
+}

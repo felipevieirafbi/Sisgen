@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-petroleo: #1B3A4B;
+  --color-petroleo-deep: #132a37;
+  --color-petroleo-light: #234b61;
+  --color-ambar: #8B5E3C;
+  --color-ambar-light: #a47248;
+  --color-dourado: #B8975A;
+  --color-dourado-light: #d4b477;
+  --color-creme: #F5F0EB;
+  --color-creme-dark: #E8E0D8;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-creme);
+  color: var(--color-petroleo);
+}
+
+/* Custom Scrollbar for Kanban */
+.kanban-scroll::-webkit-scrollbar {
+  height: 10px;
+  width: 8px;
+}
+.kanban-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 8px;
+}
+.kanban-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 8px;
+}
+.kanban-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(107, 114, 128, 0.8);
+}

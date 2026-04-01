@@ -1,0 +1,181 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId
+    // Fields:
+    //   - name: string
+    //   - email: string
+    //   - company: string
+    //   - country: string
+    //   - role: string ("client" | "admin")
+    //   - preferredLanguage: string
+    //   - createdAt: timestamp
+    //   - updatedAt: timestamp
+    //
+    // Collection: diagnostic_leads
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string (optional)
+    //   - name: string
+    //   - email: string
+    //   - company: string
+    //   - country: string
+    //   - riskLevel: string
+    //   - conversationHistory: list
+    //   - language: string
+    //   - siteLanguage: string
+    //   - crmSyncStatus: string
+    //   - contactRequested: bool
+    //   - status: string
+    //   - createdAt: timestamp
+    //
+    // Collection: products
+    // Document ID: auto-generated
+    // Fields:
+    //   - title: map
+    //   - description: map
+    //   - category: string
+    //   - price: number
+    //   - currency: string
+    //   - isActive: bool
+    //   - createdAt: timestamp
+    //
+    // Collection: purchases
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string
+    //   - productId: string
+    //   - amount: number
+    //   - currency: string
+    //   - status: string
+    //   - createdAt: timestamp
+    //
+    // Collection: site_config
+    // Document ID: configId
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        (request.auth.token.email == "felipe.vieira.consultoria@gmail.com" && request.auth.token.email_verified == true)
+      );
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return hasRequiredFields(['name', 'email', 'role', 'createdAt', 'updatedAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             isValidEmail(data.email) &&
+             data.role in ['client', 'admin'] &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidLead(data) {
+      return hasRequiredFields(['name', 'email', 'company', 'country', 'riskLevel', 'status', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.size() <= 100 &&
+             data.company is string && data.company.size() < 100 &&
+             data.country is string && data.country.size() <= 100 &&
+             data.riskLevel in ['low', 'moderate', 'high'] &&
+             (!('language' in data) || (data.language is string && data.language.size() <= 5)) &&
+             (!('source' in data) || (data.source is string && data.source.size() <= 50)) &&
+             (!('createdBy' in data) || (data.createdBy is string && data.createdBy.size() <= 100)) &&
+             (!('lastEditedBy' in data) || (data.lastEditedBy is string && data.lastEditedBy.size() <= 100)) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+             data.status in ['abandoned', 'new', 'contacting', 'meeting', 'proposal', 'negotiation', 'won', 'lost', 'trash'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidProduct(data) {
+      return hasRequiredFields(['title', 'description', 'category', 'price', 'currency', 'isActive', 'createdAt']) &&
+             data.title is map &&
+             data.description is map &&
+             data.category in ['course', 'video', 'toolkit', 'ebook'] &&
+             data.price is number && data.price >= 0 &&
+             data.currency in ['BRL', 'USD', 'EUR'] &&
+             data.isActive is bool &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidPurchase(data) {
+      return hasRequiredFields(['userId', 'productId', 'amount', 'currency', 'status', 'createdAt']) &&
+             data.userId is string && data.userId.size() > 0 &&
+             data.productId is string && data.productId.size() > 0 &&
+             data.amount is number && data.amount >= 0 &&
+             data.currency is string && data.currency.size() == 3 &&
+             data.status in ['pending', 'completed', 'refunded'] &&
+             data.createdAt is timestamp;
+    }
+
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (
+        (isOwner(userId) && request.resource.data.role == 'client') || isAdmin()
+      );
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (
+        (isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.createdAt == resource.data.createdAt) || isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /diagnostic_leads/{leadId} {
+      // Anyone can create a lead (unauthenticated chat)
+      allow create: if isValidLead(request.resource.data);
+      // Only admins or the owner (if logged in and linked) can read
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      // Admins can update any lead. Owners can update their own leads. Anyone can update leads without a userId.
+      allow update: if (isAdmin() || !('userId' in resource.data) || (isAuthenticated() && resource.data.userId == request.auth.uid)) && isValidLead(request.resource.data) && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isAdmin();
+    }
+
+    match /products/{productId} {
+      // Anyone can read active products, admins can read all
+      allow read: if resource.data.isActive == true || isAdmin();
+      allow write: if isAdmin() && isValidProduct(request.resource.data);
+    }
+
+    match /purchases/{purchaseId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow write: if isAdmin() && isValidPurchase(request.resource.data);
+    }
+
+    match /site_config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
