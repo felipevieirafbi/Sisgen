@@ -8,6 +8,7 @@ import KanbanBoard from "../components/KanbanBoard";
 import CreateLeadModal from "../components/CreateLeadModal";
 import Dashboard from "../components/Dashboard";
 import TaskCalendar from "../components/TaskCalendar";
+import UserManagement from "../components/UserManagement";
 
 export default function AdminDashboard() {
   const { t } = useTranslation();
@@ -169,6 +170,13 @@ export default function AdminDashboard() {
             <Activity size={18} className="md:w-5 md:h-5" />
             {t('admin.metrics')}
           </button>
+          <button 
+            onClick={() => setActiveTab("users")}
+            className={`flex-shrink-0 whitespace-nowrap flex items-center gap-2 md:gap-3 px-4 py-2 md:py-3 rounded-lg font-medium transition-colors text-sm md:text-base ${activeTab === 'users' ? 'bg-[#234b61] text-white' : 'text-gray-300 hover:bg-[#234b61]'}`}
+          >
+            <Settings size={18} className="md:w-5 md:h-5" />
+            {t('admin.settings')}
+          </button>
         </nav>
       </aside>
 
@@ -257,6 +265,12 @@ export default function AdminDashboard() {
           {activeTab === "calendar" && (
             <div className="h-full">
               <TaskCalendar leads={leads.filter(l => l.status !== 'trash')} />
+            </div>
+          )}
+
+          {activeTab === "users" && (
+            <div className="h-full">
+              <UserManagement />
             </div>
           )}
 

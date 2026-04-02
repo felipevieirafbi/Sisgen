@@ -127,9 +127,7 @@ export default function Diagnostic() {
         model: "gemini-3.1-pro-preview",
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
-          temperature: 0.7,
-          tools: [{ googleSearch: {} }],
-          toolConfig: { includeServerSideToolInvocations: true }
+          temperature: 0.7
         },
       });
       setChat(newChat);

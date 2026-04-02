@@ -103,6 +103,7 @@ export default function KanbanBoard({ leads, onStatusChange, onUpdateLead, onDel
   const [analysisStep, setAnalysisStep] = useState('');
   const [secretAnalysisProgress, setSecretAnalysisProgress] = useState(0);
   const [secretAnalysisStep, setSecretAnalysisStep] = useState('');
+  const [errorModal, setErrorModal] = useState<{title: string, message: string} | null>(null);
   const [isGeneratingMessage, setIsGeneratingMessage] = useState<'whatsapp' | 'email' | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showTrashConfirm, setShowTrashConfirm] = useState(false);
@@ -278,7 +279,7 @@ export default function KanbanBoard({ leads, onStatusChange, onUpdateLead, onDel
       }
     } catch (error) {
       console.error("Error uploading files:", error);
-      alert(t('diag.error'));
+      setErrorModal({ title: t('diag.error'), message: 'Ocorreu um erro ao fazer upload do arquivo.' });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -346,9 +347,9 @@ export default function KanbanBoard({ leads, onStatusChange, onUpdateLead, onDel
       clearInterval(interval);
       console.error("Error generating AI analysis:", error);
       if (error?.status === 429 || error?.status === 'RESOURCE_EXHAUSTED' || (error?.message && error.message.includes('429'))) {
-         alert(t('diag.quota_error', 'O limite de uso da inteligência artificial foi atingido no momento. Por favor, aguarde alguns instantes e tente novamente.'));
+         setErrorModal({ title: 'Limite Atingido', message: t('diag.quota_error', 'O limite de uso da inteligência artificial foi atingido no momento. Por favor, aguarde alguns instantes e tente novamente.') });
       } else {
-         alert(t('diag.error', 'Ocorreu um erro ao gerar a análise.'));
+         setErrorModal({ title: 'Erro', message: t('diag.error', 'Ocorreu um erro ao gerar a análise.') });
       }
     } finally {
       setIsAnalyzing(false);
@@ -378,7 +379,7 @@ export default function KanbanBoard({ leads, onStatusChange, onUpdateLead, onDel
 Você é um Especialista em Inteligência de Mercado B2B (OSINT) e Consultor Regulatório especializado na Lei da Biodiversidade Brasileira (Lei 13.123/2015) e SisGen. Sua missão é realizar uma varredura profunda e consolidar dados sobre empresas e seus tomadores de decisão, fornecendo insights estratégicos para uma abordagem comercial de alto nível.
 
 [Objetivo]
-Com base nos dados fornecidos, você deve pesquisar na internet (dados públicos de CNPJ, Receita Federal, Google, LinkedIn, Instagram e o site oficial da empresa) para mapear o perfil completo do negócio e da pessoa de contato. O objetivo final é identificar o nível de maturidade da empresa, seus potenciais riscos regulatórios e gerar um resumo executivo que apoie a venda de "Serviços de Diagnóstico Guiado por IA e Consultoria Especializada para conformidade com a Lei 13.123/2015 (SisGen)".
+Com base nos dados fornecidos e no seu amplo conhecimento de mercado, você deve mapear o perfil completo do negócio e da pessoa de contato. O objetivo final é identificar o nível de maturidade da empresa, seus potenciais riscos regulatórios e gerar um resumo executivo que apoie a venda de "Serviços de Diagnóstico Guiado por IA e Consultoria Especializada para conformidade com a Lei 13.123/2015 (SisGen)".
 
 [Dados de Entrada]
 
@@ -398,16 +399,15 @@ Análise Corporativa e de Atividade (Receita Federal/CNAE):
 Identifique as atividades principal e secundárias (CNAE). A empresa atua em setores de alto risco para o SisGen (ex: indústria química, cosméticos, higiene, perfumaria, agricultura, farmacêutica, alimentos e bebidas)?
 Verifique o porte da empresa, capital social e tempo de mercado.
 
-Varredura de Portfólio e P&D (Site e Google):
-Pesquise o portfólio de produtos da empresa. Eles usam insumos da biodiversidade brasileira (ex: óleos essenciais, extratos vegetais, manteigas naturais, ativos da Amazônia/Cerrado, etc.)?
-Existem notícias ou publicações sobre Pesquisa e Desenvolvimento (P&D) interno, inovação ou lançamento de novos produtos naturais?
+Varredura de Portfólio e P&D:
+Analise o provável portfólio de produtos da empresa. Eles costumam usar insumos da biodiversidade brasileira (ex: óleos essenciais, extratos vegetais, manteigas naturais, ativos da Amazônia/Cerrado, etc.)?
 
 Mapeamento de Sustentabilidade e ESG:
-A empresa possui discursos, relatórios ou certificações ligadas a sustentabilidade, ESG ou apelo ecológico/natural? (Empresas com forte apelo "verde" têm alto risco de exposição se não estiverem em conformidade com o SisGen).
+Empresas desse setor costumam possuir discursos, relatórios ou certificações ligadas a sustentabilidade, ESG ou apelo ecológico/natural? (Empresas com forte apelo "verde" têm alto risco de exposição se não estiverem em conformidade com o SisGen).
 
-Perfil do Tomador de Decisão (LinkedIn e Redes Sociais):
-Pesquise pelo [Nome do Contato] no LinkedIn e Google. Qual é o seu cargo exato (ex: Diretor de P&D, Diretor de Qualidade, Assuntos Regulatórios, CEO)?
-Qual é a formação profissional dessa pessoa? Ela tem um perfil técnico ou puramente comercial?
+Perfil do Tomador de Decisão:
+Qual é o papel provável do [Nome do Contato] com base em seu cargo (ex: Diretor de P&D, Diretor de Qualidade, Assuntos Regulatórios, CEO)?
+Qual costuma ser a formação profissional dessa pessoa e como ela toma decisões?
 
 Consolide as informações encontradas em um relatório executivo com a seguinte estrutura:
 
@@ -428,10 +428,7 @@ Formate a resposta em Markdown.
 
       const response = await ai.models.generateContent({
         model: "gemini-3.1-pro-preview",
-        contents: prompt,
-        config: {
-          tools: [{ googleSearch: {} }]
-        }
+        contents: prompt
       });
 
       clearInterval(interval);
@@ -444,15 +441,15 @@ Formate a resposta em Markdown.
         setSelectedLead({ ...selectedLead, secretAnalysis: analysis });
       } else {
         console.warn("No text in response. Possible safety block.", response);
-        alert(t('diag.error', 'A análise retornou vazia. Pode ter sido bloqueada por filtros de segurança.'));
+        setErrorModal({ title: 'Erro de Segurança', message: t('diag.error', 'A análise retornou vazia. Pode ter sido bloqueada por filtros de segurança.') });
       }
     } catch (error: any) {
       clearInterval(interval);
       console.error("Error generating secret analysis:", error);
       if (error?.status === 429 || error?.status === 'RESOURCE_EXHAUSTED' || (error?.message && error.message.includes('429'))) {
-         alert(t('diag.quota_error', 'O limite de uso da inteligência artificial foi atingido no momento. Por favor, aguarde alguns instantes e tente novamente.'));
+         setErrorModal({ title: 'Limite Atingido', message: t('diag.quota_error', 'O limite de uso da inteligência artificial foi atingido no momento. Por favor, aguarde alguns instantes e tente novamente.') });
       } else {
-         alert(t('diag.error', 'Ocorreu um erro ao gerar a análise secreta.') + ' ' + (error?.message || 'Erro desconhecido'));
+         setErrorModal({ title: 'Erro', message: t('diag.error', 'Ocorreu um erro ao gerar a análise secreta.') + ' ' + (error?.message || 'Erro desconhecido') });
       }
     } finally {
       setIsSecretAnalyzing(false);
@@ -504,9 +501,9 @@ Formate a resposta em Markdown.
     } catch (error: any) {
       console.error(`Error generating ${type} message:`, error);
       if (error?.status === 429 || error?.status === 'RESOURCE_EXHAUSTED' || (error?.message && error.message.includes('429'))) {
-         alert(t('diag.quota_error', 'O limite de uso da inteligência artificial foi atingido no momento. Por favor, aguarde alguns instantes e tente novamente.'));
+         setErrorModal({ title: 'Limite Atingido', message: t('diag.quota_error', 'O limite de uso da inteligência artificial foi atingido no momento. Por favor, aguarde alguns instantes e tente novamente.') });
       } else {
-         alert(t('diag.error', 'Ocorreu um erro ao gerar a mensagem.'));
+         setErrorModal({ title: 'Erro', message: t('diag.error', 'Ocorreu um erro ao gerar a mensagem.') });
       }
     } finally {
       setIsGeneratingMessage(null);
@@ -1097,6 +1094,29 @@ Formate a resposta em Markdown.
           </div>
         </div>
       )}
+      {/* Error Modal */}
+      {errorModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4 text-red-600">
+              <AlertTriangle size={24} />
+              <h3 className="text-lg font-bold text-gray-900">{errorModal.title}</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              {errorModal.message}
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setErrorModal(null)}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

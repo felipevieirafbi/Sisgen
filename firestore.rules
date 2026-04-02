@@ -74,7 +74,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
         (request.auth.token.email == "felipe.vieira.consultoria@gmail.com" && request.auth.token.email_verified == true)
       );
     }
@@ -111,6 +111,20 @@ service cloud.firestore {
              (!('createdBy' in data) || (data.createdBy is string && data.createdBy.size() <= 100)) &&
              (!('lastEditedBy' in data) || (data.lastEditedBy is string && data.lastEditedBy.size() <= 100)) &&
              (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+             (!('conversationHistory' in data) || (data.conversationHistory is list && data.conversationHistory.size() <= 100)) &&
+             (!('aiAnalysis' in data) || (data.aiAnalysis is string && data.aiAnalysis.size() <= 20000)) &&
+             (!('secretAnalysis' in data) || (data.secretAnalysis is string && data.secretAnalysis.size() <= 20000)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 20000)) &&
+             (!('website' in data) || (data.website is string && data.website.size() <= 200)) &&
+             (!('industry' in data) || (data.industry is string && data.industry.size() <= 100)) &&
+             (!('companySize' in data) || (data.companySize is string && data.companySize.size() <= 100)) &&
+             (!('estimatedValue' in data) || (data.estimatedValue is string && data.estimatedValue.size() <= 100)) &&
+             (!('relationshipDetails' in data) || (data.relationshipDetails is string && data.relationshipDetails.size() <= 5000)) &&
+             (!('utm_source' in data) || (data.utm_source is string && data.utm_source.size() <= 100)) &&
+             (!('utm_medium' in data) || (data.utm_medium is string && data.utm_medium.size() <= 100)) &&
+             (!('utm_campaign' in data) || (data.utm_campaign is string && data.utm_campaign.size() <= 100)) &&
+             (!('utm_term' in data) || (data.utm_term is string && data.utm_term.size() <= 100)) &&
+             (!('utm_content' in data) || (data.utm_content is string && data.utm_content.size() <= 100)) &&
              data.status in ['abandoned', 'new', 'contacting', 'meeting', 'proposal', 'negotiation', 'won', 'lost', 'trash'] &&
              data.createdAt is timestamp;
     }

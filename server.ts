@@ -3,10 +3,23 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import fs from "fs/promises";
 import Stripe from "stripe";
+import rateLimit from "express-rate-limit";
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Set up rate limiter: maximum of 100 requests per 15 minutes
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: "Muitas requisições feitas por este IP. Por favor, tente novamente após 15 minutos.",
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  });
+
+  // Apply rate limiter to all /api routes
+  app.use("/api", limiter);
 
   // Stripe requires raw body for webhook verification
   app.post(
