@@ -2,15 +2,32 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { auth, db } from "../firebase";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
-import { FileText, Video, Settings, LogOut } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { FileText, Video, Settings, LogOut, CheckCircle, XCircle } from "lucide-react";
 
 export default function Dashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [paymentStatus, setPaymentStatus] = useState<'success' | 'cancelled' | null>(null);
+
+  useEffect(() => {
+    const payment = searchParams.get('payment');
+    if (payment === 'success' || payment === 'cancelled') {
+      setPaymentStatus(payment);
+      // Remove the parameter from the URL
+      searchParams.delete('payment');
+      setSearchParams(searchParams, { replace: true });
+      
+      // Auto-hide the message after 5 seconds
+      setTimeout(() => {
+        setPaymentStatus(null);
+      }, 5000);
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
@@ -107,6 +124,26 @@ export default function Dashboard() {
       {/* Main Content */}
       <main className="flex-1 p-8">
         <div className="max-w-4xl mx-auto">
+          {paymentStatus === 'success' && (
+            <div className="mb-8 bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 text-green-800">
+              <CheckCircle className="text-green-600" size={24} />
+              <div>
+                <h3 className="font-bold">Pagamento confirmado!</h3>
+                <p className="text-sm">Sua compra foi processada com sucesso. O conteúdo estará disponível em breve.</p>
+              </div>
+            </div>
+          )}
+          
+          {paymentStatus === 'cancelled' && (
+            <div className="mb-8 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3 text-red-800">
+              <XCircle className="text-red-600" size={24} />
+              <div>
+                <h3 className="font-bold">Pagamento cancelado</h3>
+                <p className="text-sm">O processo de compra não foi concluído. Nenhuma cobrança foi realizada.</p>
+              </div>
+            </div>
+          )}
+
           <h1 className="text-3xl font-bold text-gray-900 mb-8">{t('dashboard.my_diags')}</h1>
           
           {leads.length === 0 ? (

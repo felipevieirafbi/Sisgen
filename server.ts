@@ -42,8 +42,47 @@ async function startServer() {
         // Handle the event
         if (event.type === 'checkout.session.completed') {
           const session = event.data.object;
-          // TODO: Update purchase status in Firestore
-          console.log('Payment successful for session:', session.id);
+          
+          try {
+            // Read Firebase config to get project details
+            const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+            const configRaw = await fs.readFile(configPath, "utf-8");
+            const firebaseConfig = JSON.parse(configRaw);
+            const projectId = firebaseConfig.projectId;
+            const databaseId = firebaseConfig.firestoreDatabaseId || "(default)";
+
+            const purchaseId = session.id; // Use Stripe session ID as document ID for idempotency
+            const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/purchases/${purchaseId}`;
+            
+            const purchaseData = {
+              fields: {
+                userId: { stringValue: session.customer_email || session.metadata?.userId || "unknown" },
+                productId: { stringValue: session.metadata?.productId || "unknown" },
+                amount: { integerValue: session.amount_total || 0 },
+                currency: { stringValue: session.currency || "BRL" },
+                status: { stringValue: "completed" },
+                webhookSecret: { stringValue: "stripe_webhook_secret_key_123" }, // To bypass rules
+                createdAt: { timestampValue: new Date().toISOString() }
+              }
+            };
+
+            const response = await fetch(firestoreUrl, {
+              method: 'PATCH', // PATCH acts as upsert in Firestore REST API when document ID is specified
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(purchaseData)
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error('Failed to save purchase to Firestore:', errorText);
+            } else {
+              console.log('Payment successful and saved for session:', session.id);
+            }
+          } catch (dbError) {
+            console.error('Error saving purchase to database:', dbError);
+          }
         }
 
         res.json({ received: true });
@@ -148,6 +187,7 @@ async function startServer() {
           },
         ],
         mode: "payment",
+        metadata: { productId },
         success_url: `${process.env.APP_URL || 'http://localhost:3000'}/dashboard?payment=success`,
         cancel_url: `${process.env.APP_URL || 'http://localhost:3000'}/dashboard?payment=cancelled`,
       });

@@ -120,6 +120,11 @@ export default function Courses() {
         body: JSON.stringify({ productId }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || `Server error: ${response.status}`);
+      }
+
       const data = await response.json();
 
       if (data.url) {
