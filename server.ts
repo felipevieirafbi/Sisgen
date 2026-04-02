@@ -91,10 +91,48 @@ async function startServer() {
       return res.status(500).json({ error: "Stripe not configured" });
     }
 
-    const { productId, price, currency, title } = req.body;
-    const stripe = new Stripe(stripeKey);
+    const { productId } = req.body;
+    if (!productId) {
+      return res.status(400).json({ error: "Product ID is required" });
+    }
 
     try {
+      // Read Firebase config to get project details
+      const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+      const configRaw = await fs.readFile(configPath, "utf-8");
+      const firebaseConfig = JSON.parse(configRaw);
+      const projectId = firebaseConfig.projectId;
+      const databaseId = firebaseConfig.firestoreDatabaseId || "(default)";
+
+      // Fetch product from Firestore REST API
+      const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/products/${productId}`;
+      const productRes = await fetch(firestoreUrl);
+      
+      if (!productRes.ok) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      const productData = await productRes.json();
+      const fields = productData.fields;
+      
+      if (!fields || !fields.isActive?.booleanValue) {
+        return res.status(400).json({ error: "Product is not active" });
+      }
+
+      const priceVal = fields.price?.integerValue || fields.price?.doubleValue || "0";
+      const price = parseInt(priceVal.toString(), 10);
+      const currency = fields.currency?.stringValue || "BRL";
+      
+      // Title is a map of languages
+      const titleMap = fields.title?.mapValue?.fields;
+      const title = titleMap?.pt?.stringValue || titleMap?.en?.stringValue || "Product";
+
+      if (price <= 0) {
+        return res.status(400).json({ error: "Invalid product price" });
+      }
+
+      const stripe = new Stripe(stripeKey);
+
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         line_items: [
@@ -110,8 +148,8 @@ async function startServer() {
           },
         ],
         mode: "payment",
-        success_url: `${process.env.APP_URL}/dashboard?payment=success`,
-        cancel_url: `${process.env.APP_URL}/dashboard?payment=cancelled`,
+        success_url: `${process.env.APP_URL || 'http://localhost:3000'}/dashboard?payment=success`,
+        cancel_url: `${process.env.APP_URL || 'http://localhost:3000'}/dashboard?payment=cancelled`,
       });
 
       res.json({ url: session.url });
