@@ -117,7 +117,10 @@ export default function Courses() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ productId }),
+        body: JSON.stringify({ 
+          productId,
+          userId: auth.currentUser?.uid
+        }),
       });
 
       if (!response.ok) {
