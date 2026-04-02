@@ -227,7 +227,6 @@ export default function Diagnostic() {
 
     try {
       const response = await chat.sendMessage({ message: userMessage });
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setChatProgress(100);
       setChatStep(t('diag.progress.done', 'Pronto!'));
       
@@ -239,7 +238,6 @@ export default function Diagnostic() {
         await saveLead(modelMessage);
       }
     } catch (error: any) {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       console.error("Error sending message:", error);
       
       let errorMessage = t('diag.process_error', 'Ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.');
@@ -255,6 +253,7 @@ export default function Diagnostic() {
       
       setMessages((prev) => [...prev, { role: "model", content: errorMessage }]);
     } finally {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setIsLoading(false);
     }
   };

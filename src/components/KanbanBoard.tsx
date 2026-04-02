@@ -109,11 +109,20 @@ export default function KanbanBoard({ leads, onStatusChange, onUpdateLead, onDel
   const [showTrashConfirm, setShowTrashConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isDraggingBoard, setIsDraggingBoard] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+
+  useEffect(() => {
+    return () => {
+      if (analysisIntervalRef.current) {
+        clearInterval(analysisIntervalRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedLead) {
@@ -312,7 +321,7 @@ export default function KanbanBoard({ leads, onStatusChange, onUpdateLead, onDel
     setAnalysisStep(t('admin.kanban.progress.reading'));
     
     let progress = 10;
-    const interval = setInterval(() => {
+    analysisIntervalRef.current = setInterval(() => {
       progress += 15;
       if (progress > 90) progress = 90;
       setAnalysisProgress(progress);
@@ -351,7 +360,6 @@ export default function KanbanBoard({ leads, onStatusChange, onUpdateLead, onDel
         contents: prompt,
       });
 
-      clearInterval(interval);
       setAnalysisProgress(100);
       setAnalysisStep(t('admin.kanban.progress.done'));
 
@@ -361,7 +369,6 @@ export default function KanbanBoard({ leads, onStatusChange, onUpdateLead, onDel
         setSelectedLead({ ...selectedLead, aiAnalysis: analysis });
       }
     } catch (error: any) {
-      clearInterval(interval);
       console.error("Error generating AI analysis:", error);
       if (error?.status === 429 || error?.status === 'RESOURCE_EXHAUSTED' || (error?.message && error.message.includes('429'))) {
          setErrorModal({ title: 'Limite Atingido', message: t('diag.quota_error', 'O limite de uso da inteligência artificial foi atingido no momento. Por favor, aguarde alguns instantes e tente novamente.') });
@@ -369,6 +376,9 @@ export default function KanbanBoard({ leads, onStatusChange, onUpdateLead, onDel
          setErrorModal({ title: 'Erro', message: t('diag.error', 'Ocorreu um erro ao gerar a análise.') });
       }
     } finally {
+      if (analysisIntervalRef.current) {
+        clearInterval(analysisIntervalRef.current);
+      }
       setIsAnalyzing(false);
     }
   };
