@@ -10,6 +10,7 @@ import Diagnostic from "./pages/Diagnostic";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Courses from "./pages/Courses";
+import CourseContent from "./pages/CourseContent";
 import AdminDashboard from "./pages/AdminDashboard";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="login" element={<Login />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="courses" element={<Courses />} />
+        <Route path="course/:productId" element={<CourseContent />} />
         <Route path="admin" element={<AdminDashboard />} />
         <Route path="privacy" element={<PrivacyPolicy />} />
         <Route path="terms" element={<TermsOfUse />} />

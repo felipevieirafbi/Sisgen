@@ -180,6 +180,15 @@ service cloud.firestore {
       // Anyone can read active products, admins can read all
       allow read: if resource.data.isActive == true || isAdmin();
       allow write: if isAdmin() && isValidProduct(request.resource.data);
+      
+      match /content/{contentId} {
+        allow read: if isAdmin() || (
+          isAuthenticated() && 
+          exists(/databases/$(database)/documents/purchases/$(request.auth.uid + '_' + productId)) &&
+          get(/databases/$(database)/documents/purchases/$(request.auth.uid + '_' + productId)).data.status == 'completed'
+        );
+        allow write: if isAdmin();
+      }
     }
 
     match /purchases/{purchaseId} {

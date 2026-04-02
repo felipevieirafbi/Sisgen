@@ -259,6 +259,23 @@ export default function KanbanBoard({ leads, onStatusChange, onUpdateLead, onDel
     const files = e.target.files;
     if (!files || files.length === 0 || !selectedLead || !onUpdateLead) return;
 
+    const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!allowedTypes.includes(file.type)) {
+        setErrorModal({ title: 'Arquivo inválido', message: `O arquivo ${file.name} não é suportado. Apenas PDF, DOCX, JPG e PNG são permitidos.` });
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+      if (file.size > maxSize) {
+        setErrorModal({ title: 'Arquivo muito grande', message: `O arquivo ${file.name} excede o limite de 10MB.` });
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+    }
+
     setIsUploading(true);
     try {
       const newFiles = [...(selectedLead.files || [])];
@@ -1054,6 +1071,54 @@ Formate a resposta em Markdown.
                         <option key={col.id} value={col.id}>{t(col.titleKey)}</option>
                       ))}
                     </select>
+                  </section>
+
+                  {/* Files Section */}
+                  <section>
+                    <h3 className="text-sm font-bold text-gray-400 uppercase mb-3 flex items-center gap-2">
+                      <Paperclip size={16} />
+                      Arquivos
+                    </h3>
+                    <div className="space-y-3">
+                      {selectedLead.files && selectedLead.files.length > 0 ? (
+                        <div className="space-y-2">
+                          {selectedLead.files.map((file, idx) => (
+                            <a 
+                              key={idx} 
+                              href={file.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 p-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors text-sm text-[#1b3a4b]"
+                            >
+                              <FileText size={16} className="flex-shrink-0" />
+                              <span className="truncate">{file.name}</span>
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">Nenhum arquivo anexado.</p>
+                      )}
+                      
+                      <div>
+                        <input 
+                          type="file" 
+                          ref={fileInputRef} 
+                          onChange={handleFileUpload} 
+                          className="hidden" 
+                          multiple 
+                          accept=".pdf,.docx,.jpg,.jpeg,.png"
+                        />
+                        <button 
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploading}
+                          className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-gray-100 text-gray-700 border border-gray-300 rounded-xl font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 text-sm"
+                        >
+                          {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                          {isUploading ? 'Enviando...' : 'Anexar Arquivo'}
+                        </button>
+                        <p className="text-xs text-gray-400 mt-2 text-center">Max 10MB. PDF, DOCX, JPG, PNG.</p>
+                      </div>
+                    </div>
                   </section>
 
                   {/* Audit Info */}

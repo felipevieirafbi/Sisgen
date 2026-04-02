@@ -18,6 +18,7 @@ interface Product {
 export default function Courses() {
   const { t, i18n } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
+  const [purchasedProductIds, setPurchasedProductIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -38,7 +39,7 @@ export default function Courses() {
     checkAdmin();
   }, []);
 
-  const fetchProducts = async () => {
+  const fetchProductsAndPurchases = async () => {
     try {
       const q = query(collection(db, "products"), where("isActive", "==", true));
       const querySnapshot = await getDocs(q);
@@ -50,15 +51,29 @@ export default function Courses() {
       // Sort products by price descending
       fetchedProducts.sort((a, b) => b.price - a.price);
       setProducts(fetchedProducts);
+
+      if (auth.currentUser) {
+        const purchasesQuery = query(
+          collection(db, "purchases"),
+          where("userId", "==", auth.currentUser.uid),
+          where("status", "==", "completed")
+        );
+        const purchasesSnapshot = await getDocs(purchasesQuery);
+        const purchasedIds = purchasesSnapshot.docs.map(doc => doc.data().productId);
+        setPurchasedProductIds(purchasedIds);
+      }
     } catch (error) {
-      console.error("Error fetching products:", error);
+      console.error("Error fetching products or purchases:", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProducts();
+    const unsubscribe = auth.onAuthStateChanged(() => {
+      fetchProductsAndPurchases();
+    });
+    return () => unsubscribe();
   }, []);
 
   const seedProducts = async () => {
@@ -101,7 +116,7 @@ export default function Courses() {
       for (const prod of initialProducts) {
         await setDoc(doc(db, "products", prod.id), prod);
       }
-      await fetchProducts();
+      await fetchProductsAndPurchases();
     } catch (error) {
       console.error("Error seeding products:", error);
     } finally {
@@ -202,17 +217,26 @@ export default function Courses() {
                   <div className="text-2xl font-extrabold text-[#1b3a4b] mb-6">
                     {formatPrice(product.price, product.currency)}
                   </div>
-                  <button 
-                    onClick={() => handleCheckout(product.id)}
-                    disabled={checkoutLoading === product.id}
-                    className="w-full bg-[#1b3a4b] text-white py-3 rounded-lg font-bold hover:bg-[#234b61] transition-colors flex justify-center items-center"
-                  >
-                    {checkoutLoading === product.id ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      t('courses.buy')
-                    )}
-                  </button>
+                  {purchasedProductIds.includes(product.id) ? (
+                    <Link 
+                      to={`/course/${product.id}`}
+                      className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition-colors flex justify-center items-center"
+                    >
+                      Acessar Curso
+                    </Link>
+                  ) : (
+                    <button 
+                      onClick={() => handleCheckout(product.id)}
+                      disabled={checkoutLoading === product.id}
+                      className="w-full bg-[#1b3a4b] text-white py-3 rounded-lg font-bold hover:bg-[#234b61] transition-colors flex justify-center items-center"
+                    >
+                      {checkoutLoading === product.id ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        t('courses.buy')
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             ))

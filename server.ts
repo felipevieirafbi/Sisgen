@@ -44,6 +44,8 @@ async function startServer() {
           const session = event.data.object;
           
           // Log structured data for manual reconciliation or N8N parsing
+          // IMPORTANT: When setting up N8N to write to Firestore, 
+          // the document ID MUST be `${userId}_${productId}` for security rules to work.
           console.log('PURCHASE_COMPLETED', JSON.stringify({
             sessionId: session.id,
             email: session.customer_email,

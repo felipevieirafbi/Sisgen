@@ -113,6 +113,8 @@ export default function Diagnostic() {
   const [chatStep, setChatStep] = useState('');
   const [chat, setChat] = useState<Chat | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSendTime = useRef<number>(0);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [hasConsented, setHasConsented] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
@@ -184,7 +186,9 @@ export default function Diagnostic() {
     initChat();
     
     return () => {
-      // Cleanup if needed
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
     };
   }, [i18n.language, hasConsented]);
 
@@ -195,6 +199,13 @@ export default function Diagnostic() {
   const handleSend = async () => {
     if (!input.trim() || !chat) return;
 
+    const now = Date.now();
+    if (now - lastSendTime.current < 2000) {
+      // Debounce: ignore clicks if less than 2 seconds since last send
+      return;
+    }
+    lastSendTime.current = now;
+
     const userMessage = input.trim();
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
@@ -203,7 +214,7 @@ export default function Diagnostic() {
     setChatStep(t('diag.progress.reading', 'Lumina está lendo sua mensagem...'));
 
     let progress = 10;
-    const interval = setInterval(() => {
+    progressIntervalRef.current = setInterval(() => {
       progress += 15;
       if (progress > 90) progress = 90;
       setChatProgress(progress);
@@ -216,7 +227,7 @@ export default function Diagnostic() {
 
     try {
       const response = await chat.sendMessage({ message: userMessage });
-      clearInterval(interval);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setChatProgress(100);
       setChatStep(t('diag.progress.done', 'Pronto!'));
       
@@ -228,7 +239,7 @@ export default function Diagnostic() {
         await saveLead(modelMessage);
       }
     } catch (error: any) {
-      clearInterval(interval);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       console.error("Error sending message:", error);
       
       let errorMessage = t('diag.process_error', 'Ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.');
