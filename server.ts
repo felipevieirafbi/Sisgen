@@ -4,10 +4,52 @@ import path from "path";
 import fs from "fs/promises";
 import Stripe from "stripe";
 import rateLimit from "express-rate-limit";
+import { initializeApp, cert } from "firebase-admin/app";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import cors from "cors";
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Security Headers (CSP)
+  app.use((req, res, next) => {
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self' https: wss: data: blob: 'unsafe-inline' 'unsafe-eval';"
+    );
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    next();
+  });
+
+  // CORS Configuration
+  app.use(cors({
+    origin: process.env.APP_URL || "*", // In production, restrict this to the actual domain
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+  }));
+
+  // Initialize Firebase Admin
+  let adminDb: FirebaseFirestore.Firestore;
+  try {
+    const serviceAccountRaw = await fs.readFile(path.join(process.cwd(), "service-account.json"), "utf-8");
+    const serviceAccount = JSON.parse(serviceAccountRaw);
+    
+    const configRaw = await fs.readFile(path.join(process.cwd(), "firebase-applet-config.json"), "utf-8");
+    const firebaseConfig = JSON.parse(configRaw);
+
+    const adminApp = initializeApp({
+      credential: cert(serviceAccount),
+      projectId: firebaseConfig.projectId,
+    });
+
+    adminDb = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
+    console.log("Firebase Admin initialized successfully.");
+  } catch (error) {
+    console.error("Failed to initialize Firebase Admin:", error);
+  }
 
   // Set up rate limiter: maximum of 100 requests per 15 minutes
   const limiter = rateLimit({
@@ -42,15 +84,32 @@ async function startServer() {
         // Handle the event
         if (event.type === 'checkout.session.completed') {
           const session = event.data.object;
+          const userId = session.metadata?.userId;
+          const productId = session.metadata?.productId;
           
+          if (userId && productId && adminDb) {
+            try {
+              await adminDb.doc(`purchases/${userId}_${productId}`).set({
+                userId,
+                productId,
+                stripeSessionId: session.id,
+                amount: session.amount_total,
+                currency: session.currency,
+                status: 'completed',
+                createdAt: FieldValue.serverTimestamp()
+              });
+              console.log(`[SUCCESS] Purchase recorded natively for user ${userId} and product ${productId}`);
+            } catch (dbError) {
+              console.error('[ERROR] Failed to record purchase in Firestore:', dbError);
+            }
+          }
+
           // Log structured data for manual reconciliation or N8N parsing
-          // IMPORTANT: When setting up N8N to write to Firestore, 
-          // the document ID MUST be `${userId}_${productId}` for security rules to work.
           console.log('PURCHASE_COMPLETED', JSON.stringify({
             sessionId: session.id,
             email: session.customer_email,
-            userId: session.metadata?.userId,
-            productId: session.metadata?.productId,
+            userId,
+            productId,
             amount: session.amount_total,
             currency: session.currency
           }));

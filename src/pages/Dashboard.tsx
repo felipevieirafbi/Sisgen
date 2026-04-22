@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { auth, db } from "../firebase";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc, deleteDoc } from "firebase/firestore";
+import { deleteUser } from "firebase/auth";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { FileText, Video, Settings, LogOut, CheckCircle, XCircle } from "lucide-react";
+import { FileText, Video, Settings, LogOut, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 
 export default function Dashboard() {
   const { t } = useTranslation();
@@ -14,7 +15,8 @@ export default function Dashboard() {
   const [purchasedCourses, setPurchasedCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'cancelled' | null>(null);
-  const [activeTab, setActiveTab] = useState<'diags' | 'courses'>('diags');
+  const [activeTab, setActiveTab] = useState<'diags' | 'courses' | 'settings'>('diags');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const payment = searchParams.get('payment');
@@ -88,6 +90,38 @@ export default function Dashboard() {
     navigate("/");
   };
 
+  const handleDeleteAccount = async () => {
+    if (!auth.currentUser) return;
+    
+    const confirmDelete = window.confirm(t('dashboard.delete_account_confirm'));
+    if (!confirmDelete) return;
+
+    setIsDeleting(true);
+    try {
+      // Delete user document from Firestore
+      await deleteDoc(doc(db, "users", auth.currentUser.uid));
+      
+      // Delete user from Firebase Auth
+      await deleteUser(auth.currentUser);
+      
+      alert(t('dashboard.delete_account_success'));
+      navigate("/");
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      // If it's a "requires-recent-login" error, we should ideally prompt them to re-authenticate
+      // For now, we'll just show an alert
+      if (error.code === 'auth/requires-recent-login') {
+        alert(t('dashboard.delete_account_error') + " (Re-login required)");
+        await auth.signOut();
+        navigate("/login");
+      } else {
+        alert(t('dashboard.delete_account_error'));
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">{t('dashboard.loading')}</div>;
   }
@@ -110,7 +144,10 @@ export default function Dashboard() {
           <Video size={16} />
           {t('dashboard.courses')}
         </button>
-        <button className="flex-shrink-0 flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-[#e8e0d8] rounded-lg font-medium text-sm">
+        <button 
+          onClick={() => setActiveTab('settings')}
+          className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm ${activeTab === 'settings' ? 'bg-[#f5f0eb] text-[#1b3a4b]' : 'text-gray-600 hover:bg-[#e8e0d8]'}`}
+        >
           <Settings size={16} />
           {t('dashboard.settings')}
         </button>
@@ -142,7 +179,10 @@ export default function Dashboard() {
               <Video size={20} />
               {t('dashboard.my_courses')}
             </button>
-            <button className="flex items-center gap-3 w-full px-4 py-3 text-gray-600 hover:bg-[#e8e0d8] rounded-lg font-medium transition-colors">
+            <button 
+              onClick={() => setActiveTab('settings')}
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg font-medium transition-colors ${activeTab === 'settings' ? 'bg-[#f5f0eb] text-[#1b3a4b]' : 'text-gray-600 hover:bg-[#e8e0d8]'}`}
+            >
               <Settings size={20} />
               {t('dashboard.settings')}
             </button>
@@ -226,6 +266,27 @@ export default function Dashboard() {
                   ))}
                 </div>
               )}
+            </>
+          ) : activeTab === 'settings' ? (
+            <>
+              <h1 className="text-3xl font-bold text-gray-900 mb-8">{t('dashboard.settings')}</h1>
+              
+              <div className="bg-white p-8 rounded-xl shadow-sm border border-red-200">
+                <div className="flex items-center gap-3 mb-4 text-red-600">
+                  <AlertTriangle size={24} />
+                  <h3 className="text-xl font-bold">{t('dashboard.delete_account')}</h3>
+                </div>
+                <p className="text-gray-600 mb-6">
+                  {t('dashboard.delete_account_desc')}
+                </p>
+                <button 
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting}
+                  className="bg-red-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {isDeleting ? t('dashboard.loading') : t('dashboard.delete_account')}
+                </button>
+              </div>
             </>
           ) : (
             <>
